@@ -13,3 +13,6 @@ opt-level = 3
 
 [dependencies]
 bevy = "0.9.1"
+bevy-inspector-egui = "0.17.0"
+egui = "0.20.1"
+itertools = "0.10.5"
