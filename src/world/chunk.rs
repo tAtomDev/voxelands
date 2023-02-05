@@ -1,15 +1,9 @@
-use std::{
-    collections::HashMap,
-    f32::consts::E,
-    sync::{Arc, RwLock, RwLockReadGuard, Weak},
-};
+use std::sync::{Arc, RwLock, Weak};
 
 use bevy::prelude::{IVec3, Vec3};
+use rand::Rng;
 
-use crate::data::{
-    constants::{CHUNK_SIZE, CHUNK_SIZE_CUBED, CHUNK_SIZE_I32},
-    VoxelType,
-};
+use crate::data::{constants::*, VoxelType};
 
 use super::*;
 
@@ -92,16 +86,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(position: IVec3) -> Chunk {
-        Chunk {
-            voxels: VoxelMap::new(),
-            world_position: position,
-            neighbors: ChunkNeighbors::default(),
-            should_regenerate_mesh: false,
-        }
-    }
-
-    pub fn new_with_neighbors(position: IVec3, neighbors: ChunkNeighbors) -> Chunk {
+    pub fn new(position: IVec3, neighbors: ChunkNeighbors) -> Chunk {
         Chunk {
             voxels: VoxelMap::new(),
             world_position: position,
@@ -118,19 +103,30 @@ impl Chunk {
         World::chunk_to_world_position(self.world_position)
     }
 
-    pub fn generate_at(world_position: IVec3, neighbors: ChunkNeighbors) -> Chunk {
-        let mut chunk = Chunk::new_with_neighbors(world_position, neighbors);
-        for position in chunk.iter_voxels() {
-            if position.y > 16 {
-                chunk.set_voxel(VoxelType::Air, position);
-            } else if position.y == 16 {
-                chunk.set_voxel(VoxelType::Grass, position);
+    pub fn generate_at(world_position: IVec3, neighbors: ChunkNeighbors) -> Option<Chunk> {
+        let mut chunk = Chunk::new(world_position, neighbors);
+        let mut empty_chunk = true;
+        let mut rng = rand::thread_rng();
+
+        for voxel_position in chunk.iter_voxels() {
+            let position = chunk.world_position().as_ivec3() + voxel_position;
+            let h = 16 + rng.gen_range(-4..=4);
+            if position.y > h {
+                chunk.set_voxel(VoxelType::Air, voxel_position);
+            } else if position.y == h {
+                chunk.set_voxel(VoxelType::Grass, voxel_position);
+                empty_chunk = false;
             } else {
-                chunk.set_voxel(VoxelType::Dirt, position);
+                chunk.set_voxel(VoxelType::Dirt, voxel_position);
+                empty_chunk = false;
             }
         }
 
-        chunk
+        if empty_chunk {
+            None
+        } else {
+            Some(chunk)
+        }
     }
 
     pub const fn iter_voxels(&self) -> voxel_map::VoxelIterator {
@@ -163,6 +159,7 @@ impl Chunk {
 
         let chunk_world_position = relative_chunk_neighbor_position + self.world_position;
 
+        let mut result = None;
         for neighbor in self.neighbors.neighbors.iter() {
             let Some(neighbor) = neighbor.upgrade() else {
                 continue;
@@ -170,11 +167,12 @@ impl Chunk {
 
             let chunk = neighbor.read().unwrap();
             if chunk.world_position == chunk_world_position {
-                return Some((relative_neighbor_voxel_position, neighbor.clone()));
+                result = Some((relative_neighbor_voxel_position, neighbor.clone()));
+                break;
             }
         }
 
-        None
+        result
     }
 
     pub const fn get_voxel(&self, position: IVec3) -> VoxelType {

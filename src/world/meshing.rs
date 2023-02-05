@@ -22,26 +22,29 @@ struct MeshData {
 
 fn add_face(mesh_data: &mut MeshData, voxel_type: VoxelType, position: IVec3, face: VoxelFace) {
     let indices_offset = mesh_data.positions.len() as u32;
-
     let face_vertex_positions = face.vertex_positions();
-    for face_position in face_vertex_positions {
-        mesh_data
-            .positions
-            .push((face_position + position.as_vec3()).into());
+    let face_normal = face.normal().as_vec3();
+    let face_index = voxel_type.get_face_index(face);
+    let face_color_intensity = face.color_intensity();
 
-        mesh_data.normals.push(face.normal().as_vec3().into());
+    mesh_data.positions.reserve(4);
+    mesh_data.normals.reserve(4);
+    mesh_data.indexes.reserve(4);
+    mesh_data.color_intensities.reserve(4);
+    mesh_data.uvs.reserve(8);
+    mesh_data.indices.reserve(6);
 
-        mesh_data.indexes.push(voxel_type.get_face_index(face));
-
-        mesh_data.color_intensities.push(face.color_intensity());
+    for i in 0..4 {
+        let face_position = face_vertex_positions[i] + position.as_vec3();
+        mesh_data.positions.push(face_position.into());
+        mesh_data.normals.push(face_normal.into());
+        mesh_data.indexes.push(face_index);
+        mesh_data.color_intensities.push(face_color_intensity);
+        mesh_data.uvs.push(FACE_UVS[i].into());
     }
 
-    for uv in FACE_UVS {
-        mesh_data.uvs.push(uv.into());
-    }
-
-    for indice in FACE_INDICES {
-        mesh_data.indices.push(indices_offset + indice);
+    for i in 0..6 {
+        mesh_data.indices.push(indices_offset + FACE_INDICES[i]);
     }
 }
 

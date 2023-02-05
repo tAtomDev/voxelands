@@ -3,7 +3,7 @@ mod plugin;
 mod rendering;
 mod world;
 
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, prelude::*, window::PresentMode};
 use plugin::*;
 use rendering::{ChunkMaterial, ChunkTextureAtlas};
 
@@ -14,6 +14,7 @@ fn main() {
                 .set(WindowPlugin {
                     window: WindowDescriptor {
                         title: String::from("Voxelands"),
+                        present_mode: PresentMode::AutoNoVsync,
                         ..Default::default()
                     },
                     ..Default::default()

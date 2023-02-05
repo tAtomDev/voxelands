@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -61,6 +62,20 @@ impl World {
         &self.chunks
     }
 
+    pub fn chunk_exists(&self, position: IVec3) -> bool {
+        self.chunks.contains_key(&position)
+    }
+
+    pub fn set_chunk(&mut self, position: IVec3, chunk: Chunk) {
+        self.chunks.insert(position, Arc::new(RwLock::new(chunk)));
+        self.regenerate_chunks_nearby(position);
+    }
+
+    pub fn remove_chunk(&mut self, position: IVec3) {
+        self.chunks.remove(&position);
+        self.regenerate_chunks_nearby(position);
+    }
+
     pub fn get_chunk(&self, position: IVec3) -> Option<RwLockReadGuard<Chunk>> {
         Some(
             self.chunks
@@ -106,20 +121,13 @@ impl World {
         }
     }
 
-    pub fn generate_chunk(&mut self, position: IVec3) -> Option<RwLockReadGuard<Chunk>> {
-        if self.chunks.contains_key(&position) {
+    pub fn generate_chunk(&self, position: IVec3) -> Option<Chunk> {
+        if self.chunk_exists(position) {
             return None;
         }
 
         let neighbors = self.get_chunk_neighbors(position);
 
-        let generated_chunk = Chunk::generate_at(position, neighbors);
-
-        self.chunks
-            .insert(position, Arc::new(RwLock::new(generated_chunk)));
-
-        self.regenerate_chunks_nearby(position);
-
-        self.get_chunk(position)
+        Chunk::generate_at(position, neighbors)
     }
 }
