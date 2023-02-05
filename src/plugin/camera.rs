@@ -1,8 +1,6 @@
 use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
 use bevy_inspector_egui::bevy_egui::EguiContext;
 
-use crate::world::World;
-
 #[derive(Component)]
 pub struct CameraState {
     pub sensibility: f32,
@@ -57,7 +55,6 @@ fn move_camera(
     mut query: Query<(&mut Transform, &mut CameraState)>,
 ) {
     let (mut transform, mut state) = query.single_mut();
-    let start_chunk_position = World::world_to_chunk_position(transform.translation.as_ivec3());
     let is_running = keys.pressed(KeyCode::LShift);
 
     let forward = transform.forward().normalize_or_zero();
@@ -82,9 +79,7 @@ fn move_camera(
 
     transform.translation += velocity * time.delta_seconds();
 
-    let end_chunk_position = World::world_to_chunk_position(transform.translation.as_ivec3());
-
-    if start_chunk_position != end_chunk_position {
+    if direction != Vec3::ZERO {
         state.should_load_chunks = true;
     }
 }

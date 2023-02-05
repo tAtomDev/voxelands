@@ -12,4 +12,4 @@ pub struct ChunkSouldRegenerateMesh;
 pub struct ChunkLoadTask(pub Task<Option<Chunk>>);
 
 #[derive(Component)]
-pub struct ChunkRebuildTask(pub Task<Mesh>, pub Handle<Mesh>);
+pub struct ChunkRebuildTask(pub Task<Mesh>, pub IVec3, pub Handle<Mesh>);

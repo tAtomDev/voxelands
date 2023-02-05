@@ -82,21 +82,6 @@ pub fn generate_empty_chunk_mesh() -> Mesh {
 
     let mut mesh_data: MeshData = MeshData::default();
 
-    for x in 0..1 {
-        for y in 0..1 {
-            for z in 0..1 {
-                for face in FACES {
-                    add_face(
-                        &mut mesh_data,
-                        VoxelType::Stone,
-                        IVec3::new(x, y, z) + face.normal(),
-                        face,
-                    );
-                }
-            }
-        }
-    }
-
     mesh.set_indices(Some(Indices::U32(mesh_data.indices)));
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.positions);
     mesh.insert_attribute(

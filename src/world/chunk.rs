@@ -82,7 +82,6 @@ pub struct Chunk {
     voxels: VoxelMap,
     world_position: IVec3,
     pub neighbors: ChunkNeighbors,
-    pub should_regenerate_mesh: bool,
 }
 
 impl Chunk {
@@ -91,7 +90,6 @@ impl Chunk {
             voxels: VoxelMap::new(),
             world_position: position,
             neighbors: ChunkNeighbors::default(),
-            should_regenerate_mesh: true,
         }
     }
 
@@ -162,7 +160,6 @@ impl Chunk {
         let mut result = None;
         for neighbor in self.neighbors.neighbors.iter() {
             let Some(neighbor) = neighbor.upgrade() else {
-                println!("failed to upgrade neighbor");
                 continue;
             };
 

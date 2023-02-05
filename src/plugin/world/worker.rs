@@ -10,7 +10,7 @@ use crate::{
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool, utils::FloatOrd};
 use futures_lite::future::{block_on, poll_once};
 
-use super::{components::*, events::*};
+use super::{components::*, events::*, systems::update_nearby_chunks};
 
 #[derive(Resource, Default)]
 pub struct WorldQueues {
@@ -27,12 +27,13 @@ impl Plugin for WorldWorkerPlugin {
             .add_system(apply_chunk_tasks)
             .add_system(prepare_rebuild_tasks)
             .add_system(apply_rebuild_tasks)
+            .add_system(update_nearby_chunks)
             .add_system(enqueue_chunks);
     }
 }
 
 fn despawn_chunks(mut queues: ResMut<WorldQueues>, mut events: EventWriter<DespawnChunkEvent>) {
-    while let Some(chunk_position) = queues.chunk_unload_queue.pop_front() {
+    if let Some(chunk_position) = queues.chunk_unload_queue.pop_front() {
         events.send(DespawnChunkEvent(chunk_position));
     }
 }
@@ -50,41 +51,50 @@ fn apply_chunk_tasks(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut ChunkLoadTask)>,
     mut events: EventWriter<SpawnChunkEvent>,
+    mut world: ResMut<World>,
 ) {
     for (entity, mut task) in &mut tasks {
-        commands.entity(entity).despawn();
-
         let chunk_task = block_on(poll_once(&mut task.0));
+        let Some(chunk_task) = chunk_task else {
+            return;
+        };
+        
+        commands.entity(entity).despawn();
+        
         let Some(chunk) = chunk_task else {
             return;
         };
+        
+        let position = chunk.position();
+        let chunk = Arc::new(RwLock::new(chunk));
 
-        let Some(chunk) = chunk else {
-            return;
-        };
+        world.set_chunk(position, chunk.clone());
 
-        events.send(SpawnChunkEvent(Arc::new(RwLock::new(chunk))));
+        events.send(SpawnChunkEvent(chunk.clone()));
     }
 }
 
 fn prepare_rebuild_tasks(
     mut commands: Commands,
     mut events: EventReader<RebuildChunkEvent>,
-    world: Res<World>,
+    mut world: ResMut<World>,
 ) {
     let thread_pool = AsyncComputeTaskPool::get();
 
     for event in events.iter() {
         let (chunk_position, mesh) = (event.0, event.1.clone());
+        if !world.chunk_exists(chunk_position) {
+            continue;
+        }
 
+        world.update_chunk_neighbors(chunk_position);
         let chunk = world.get_chunk_arc(chunk_position);
-        chunk.write().unwrap().neighbors = world.get_chunk_neighbors(chunk_position);
         let task = thread_pool.spawn(async move {
             let chunk = chunk.read().unwrap();
             generate_chunk_mesh(&chunk)
         });
 
-        commands.spawn(ChunkRebuildTask(task, mesh));
+        commands.spawn(ChunkRebuildTask(task, chunk_position, mesh));
     }
 }
 
@@ -101,7 +111,7 @@ fn apply_rebuild_tasks(
 
         commands.entity(entity).despawn();
 
-        *meshes.get_mut(&task.1).unwrap() = mesh;
+        *meshes.get_mut(&task.2).unwrap() = mesh;
     }
 }
 
@@ -109,11 +119,10 @@ fn enqueue_chunks(
     mut query: Query<(&Transform, &mut CameraState)>,
     mut queues: ResMut<WorldQueues>,
     world: Res<World>,
-    input: Res<Input<KeyCode>>,
 ) {
     let (transform, mut camera_state) = query.single_mut();
 
-    if !camera_state.should_load_chunks || !input.just_pressed(KeyCode::Space) {
+    if !camera_state.should_load_chunks {
         return;
     }
 
@@ -124,13 +133,14 @@ fn enqueue_chunks(
     let mut positions_to_load = Vec::new();
     let mut valid_positions: Vec<IVec3> = vec![];
 
-    const VIEW_DISTANCE: i32 = 8;
+    const VIEW_DISTANCE: i32 = 12;
     const VIEW_DISTANCE_SQUARED: i32 = VIEW_DISTANCE * VIEW_DISTANCE;
+    const VIEW_DISTANCE_HALF: i32 = VIEW_DISTANCE / 2;
 
     for x in -VIEW_DISTANCE..=VIEW_DISTANCE {
-        for y in -VIEW_DISTANCE..=VIEW_DISTANCE {
+        for y in -VIEW_DISTANCE_HALF..=VIEW_DISTANCE_HALF {
             for z in -VIEW_DISTANCE..=VIEW_DISTANCE {
-                if x * x + y * y + z * z >= VIEW_DISTANCE_SQUARED {
+                if x * x + z * z >= VIEW_DISTANCE_SQUARED {
                     continue;
                 }
 
@@ -139,6 +149,7 @@ fn enqueue_chunks(
                 if !world.chunk_exists(chunk_position) {
                     positions_to_load.push(chunk_position);
                 }
+
                 valid_positions.push(chunk_position);
             }
         }
