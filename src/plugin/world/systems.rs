@@ -2,28 +2,10 @@ use bevy::{prelude::*, render::view::NoFrustumCulling};
 
 use crate::{
     rendering::{ChunkMaterial, ChunkTextureAtlas},
-    world::{meshing, World},
+    world::meshing,
 };
 
 use super::{components::*, events::*};
-
-pub fn despawn_chunks(
-    mut commands: Commands,
-    mut world: ResMut<World>,
-    mut events: EventReader<DespawnChunkEvent>,
-    query: Query<(Entity, &ChunkComponent)>,
-) {
-    for event in events.iter() {
-        let chunk_position = event.0;
-        for (entity, component) in &query {
-            if component.0 == chunk_position {
-                world.remove_chunk(chunk_position);
-                commands.entity(entity).despawn_recursive();
-                break;
-            }
-        }
-    }
-}
 
 pub fn spawn_chunks(
     mut commands: Commands,
@@ -67,9 +49,7 @@ pub fn update_nearby_chunks(
         for (entity, component) in &chunks {
             let chunk_position = component.0;
             if chunk_position.as_vec3().distance(nearby_position.as_vec3()) <= 1.0 {
-                if let Some(mut entity) = commands.get_entity(entity) {
-                    entity.insert(ChunkSouldRegenerateMesh);
-                }
+                commands.entity(entity).insert(ChunkSouldRegenerateMesh);
             }
         }
     }

@@ -12,6 +12,9 @@ use futures_lite::future::{block_on, poll_once};
 
 use super::{components::*, events::*, systems::update_nearby_chunks};
 
+const VIEW_DISTANCE: i32 = 8;
+const VIEW_DISTANCE_HALF: i32 = VIEW_DISTANCE / 2;
+
 #[derive(Resource, Default)]
 pub struct WorldQueues {
     pub chunk_load_queue: VecDeque<IVec3>,
@@ -32,14 +35,28 @@ impl Plugin for WorldWorkerPlugin {
     }
 }
 
-fn despawn_chunks(mut queues: ResMut<WorldQueues>, mut events: EventWriter<DespawnChunkEvent>) {
-    if let Some(chunk_position) = queues.chunk_unload_queue.pop_front() {
-        events.send(DespawnChunkEvent(chunk_position));
-    }
+fn despawn_chunks(
+    mut commands: Commands,
+    mut query: Query<&Transform, With<CameraState>>,
+    mut world: ResMut<World>,
+    visible_query: Query<(Entity, &ChunkComponent)>,
+) {
+    let transform = query.single_mut();
+
+    let center = World::world_to_chunk_position(transform.translation.as_ivec3());
+
+    visible_query.for_each(|(entity, chunk_component)| {
+        let chunk_position = chunk_component.0;
+        if distance(center - chunk_position) >= VIEW_DISTANCE {
+            world.remove_chunk(chunk_position);
+            commands.entity(entity).despawn_recursive();
+        }
+    });
 }
 
 fn prepare_chunk_tasks(mut commands: Commands, mut queues: ResMut<WorldQueues>) {
     let thread_pool = AsyncComputeTaskPool::get();
+
     if let Some(chunk_position) = queues.chunk_load_queue.pop_front() {
         let task = thread_pool.spawn(async move { Chunk::generate_at(chunk_position) });
 
@@ -58,13 +75,13 @@ fn apply_chunk_tasks(
         let Some(chunk_task) = chunk_task else {
             return;
         };
-        
+
         commands.entity(entity).despawn();
-        
+
         let Some(chunk) = chunk_task else {
             return;
         };
-        
+
         let position = chunk.position();
         let chunk = Arc::new(RwLock::new(chunk));
 
@@ -84,7 +101,7 @@ fn prepare_rebuild_tasks(
     for event in events.iter() {
         let (chunk_position, mesh) = (event.0, event.1.clone());
         if !world.chunk_exists(chunk_position) {
-            continue;
+            return;
         }
 
         world.update_chunk_neighbors(chunk_position);
@@ -130,24 +147,22 @@ fn enqueue_chunks(
 
     let player_chunk_position = World::world_to_chunk_position(transform.translation.as_ivec3());
 
-    let mut positions_to_load = Vec::new();
-    let mut valid_positions: Vec<IVec3> = vec![];
-
-    const VIEW_DISTANCE: i32 = 12;
-    const VIEW_DISTANCE_SQUARED: i32 = VIEW_DISTANCE * VIEW_DISTANCE;
-    const VIEW_DISTANCE_HALF: i32 = VIEW_DISTANCE / 2;
+    let mut valid_positions = Vec::new();
 
     for x in -VIEW_DISTANCE..=VIEW_DISTANCE {
-        for y in -VIEW_DISTANCE_HALF..=VIEW_DISTANCE_HALF {
-            for z in -VIEW_DISTANCE..=VIEW_DISTANCE {
-                if x * x + z * z >= VIEW_DISTANCE_SQUARED {
+        for z in -VIEW_DISTANCE..=VIEW_DISTANCE {
+            for y in -VIEW_DISTANCE_HALF..=VIEW_DISTANCE_HALF {
+                let offset = IVec3::new(x, y, z);
+                if x * x + z * z >= VIEW_DISTANCE * VIEW_DISTANCE {
                     continue;
                 }
 
-                let chunk_position = player_chunk_position + IVec3::new(x, y, z);
+                let chunk_position = player_chunk_position + offset;
 
-                if !world.chunk_exists(chunk_position) {
-                    positions_to_load.push(chunk_position);
+                if !queues.chunk_load_queue.contains(&chunk_position)
+                    && !world.chunk_exists(chunk_position)
+                {
+                    queues.chunk_load_queue.push_back(chunk_position);
                 }
 
                 valid_positions.push(chunk_position);
@@ -155,29 +170,11 @@ fn enqueue_chunks(
         }
     }
 
-    enqueue_valid_chunks(
-        &mut queues,
-        positions_to_load,
-        valid_positions,
-        world.chunks().keys().copied().collect(),
-    );
+    queues
+        .chunk_load_queue
+        .retain(|pos| valid_positions.contains(pos));
+
     sort_chunk_queues(&mut queues, player_chunk_position.as_vec3());
-}
-
-fn enqueue_valid_chunks(
-    queues: &mut ResMut<WorldQueues>,
-    positions_to_load: Vec<IVec3>,
-    valid_positions: Vec<IVec3>,
-    all_positions: Vec<IVec3>,
-) {
-    queues.chunk_load_queue = positions_to_load.clone().into();
-
-    // Remove from unload queue
-    queues.chunk_unload_queue = all_positions
-        .iter()
-        .copied()
-        .filter(|p| !valid_positions.contains(p))
-        .collect();
 }
 
 fn sort_chunk_queues(queues: &mut ResMut<WorldQueues>, base_position: Vec3) {
@@ -185,9 +182,8 @@ fn sort_chunk_queues(queues: &mut ResMut<WorldQueues>, base_position: Vec3) {
         .chunk_load_queue
         .make_contiguous()
         .sort_unstable_by_key(|key| FloatOrd(key.as_vec3().distance(base_position)));
+}
 
-    queues
-        .chunk_unload_queue
-        .make_contiguous()
-        .sort_unstable_by_key(|key| FloatOrd(key.as_vec3().distance(base_position)));
+fn distance(p: IVec3) -> i32 {
+    p.max_element().abs().max(p.min_element().abs())
 }

@@ -34,17 +34,18 @@ fn add_face(mesh_data: &mut MeshData, voxel_type: VoxelType, position: IVec3, fa
     mesh_data.uvs.reserve(8);
     mesh_data.indices.reserve(6);
 
-    for i in 0..4 {
+    for i in 0..6 {
+        mesh_data.indices.push(indices_offset + FACE_INDICES[i]);
+        if i >= 4 {
+            continue;
+        }
+
         let face_position = face_vertex_positions[i] + position.as_vec3();
         mesh_data.positions.push(face_position.into());
         mesh_data.normals.push(face_normal.into());
         mesh_data.indexes.push(face_index);
         mesh_data.color_intensities.push(face_color_intensity);
         mesh_data.uvs.push(FACE_UVS[i].into());
-    }
-
-    for i in 0..6 {
-        mesh_data.indices.push(indices_offset + FACE_INDICES[i]);
     }
 }
 
@@ -80,7 +81,7 @@ pub fn generate_chunk_mesh(chunk: &Chunk) -> Mesh {
 pub fn generate_empty_chunk_mesh() -> Mesh {
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 
-    let mut mesh_data: MeshData = MeshData::default();
+    let mesh_data: MeshData = MeshData::default();
 
     mesh.set_indices(Some(Indices::U32(mesh_data.indices)));
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.positions);
