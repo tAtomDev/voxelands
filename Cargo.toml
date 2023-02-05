@@ -18,5 +18,6 @@ debug = true
 bevy = "0.9.1"
 bevy-inspector-egui = "0.17.0"
 egui = "0.20.1"
+futures-lite = "1.12.0"
 itertools = "0.10.5"
 rand = "0.8.5"

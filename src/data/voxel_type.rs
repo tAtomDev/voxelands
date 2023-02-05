@@ -5,6 +5,7 @@ pub enum VoxelType {
     Air,
     Grass,
     Dirt,
+    Stone,
 }
 
 impl VoxelType {
@@ -20,6 +21,7 @@ impl VoxelType {
                 _ => 2,
             },
             VoxelType::Dirt => 2,
+            VoxelType::Stone => 3,
             _ => 0,
         }
     }

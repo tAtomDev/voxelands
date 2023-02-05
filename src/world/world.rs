@@ -62,18 +62,27 @@ impl World {
         &self.chunks
     }
 
+    pub fn chunks_mut(&mut self) -> &mut HashMap<IVec3, ArcRwChunk> {
+        &mut self.chunks
+    }
+
     pub fn chunk_exists(&self, position: IVec3) -> bool {
         self.chunks.contains_key(&position)
     }
 
-    pub fn set_chunk(&mut self, position: IVec3, chunk: Chunk) {
-        self.chunks.insert(position, Arc::new(RwLock::new(chunk)));
-        self.regenerate_chunks_nearby(position);
+    pub fn set_chunk(&mut self, position: IVec3, chunk: Arc<RwLock<Chunk>>) {
+        self.chunks.insert(position, chunk);
     }
 
     pub fn remove_chunk(&mut self, position: IVec3) {
         self.chunks.remove(&position);
-        self.regenerate_chunks_nearby(position);
+    }
+
+    pub fn get_chunk_arc(&self, position: IVec3) -> Arc<RwLock<Chunk>> {
+        self.chunks
+            .get(&position)
+            .expect("failed to read chunk arc")
+            .clone()
     }
 
     pub fn get_chunk(&self, position: IVec3) -> Option<RwLockReadGuard<Chunk>> {
@@ -107,27 +116,8 @@ impl World {
         neighbors
     }
 
-    fn regenerate_chunks_nearby(&self, position: IVec3) {
-        for (x, y, z) in iproduct!(-1..=1, -1..=1, -1..=1) {
-            if x == 0 && y == 0 && z == 0 {
-                continue;
-            }
-
-            let Some(mut chunk) = self.get_chunk_mut(position + IVec3::new(x, y, z)) else {
-                continue;
-            };
-
-            chunk.should_regenerate_mesh = true;
-        }
-    }
-
-    pub fn generate_chunk(&self, position: IVec3) -> Option<Chunk> {
-        if self.chunk_exists(position) {
-            return None;
-        }
-
-        let neighbors = self.get_chunk_neighbors(position);
-
-        Chunk::generate_at(position, neighbors)
+    pub fn update_chunk_neighbors(&mut self, position: IVec3) {
+        let mut chunk = self.get_chunk_mut(position).expect("failed to get chunk");
+        chunk.neighbors = self.get_chunk_neighbors(position);
     }
 }

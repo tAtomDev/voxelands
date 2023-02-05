@@ -86,12 +86,12 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn new(position: IVec3, neighbors: ChunkNeighbors) -> Chunk {
+    pub fn new(position: IVec3) -> Chunk {
         Chunk {
             voxels: VoxelMap::new(),
             world_position: position,
-            neighbors,
-            should_regenerate_mesh: false,
+            neighbors: ChunkNeighbors::default(),
+            should_regenerate_mesh: true,
         }
     }
 
@@ -103,8 +103,8 @@ impl Chunk {
         World::chunk_to_world_position(self.world_position)
     }
 
-    pub fn generate_at(world_position: IVec3, neighbors: ChunkNeighbors) -> Option<Chunk> {
-        let mut chunk = Chunk::new(world_position, neighbors);
+    pub fn generate_at(world_position: IVec3) -> Option<Chunk> {
+        let mut chunk = Chunk::new(world_position);
         let mut empty_chunk = true;
         let mut rng = rand::thread_rng();
 
@@ -162,6 +162,7 @@ impl Chunk {
         let mut result = None;
         for neighbor in self.neighbors.neighbors.iter() {
             let Some(neighbor) = neighbor.upgrade() else {
+                println!("failed to upgrade neighbor");
                 continue;
             };
 
