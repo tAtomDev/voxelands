@@ -19,7 +19,6 @@ impl Plugin for WorldPlugin {
             .add_event::<UpdateNearbyChunks>()
             .add_plugin(WorldWorkerPlugin)
             .init_resource::<World>()
-            .add_system(spawn_chunks)
             .add_system(verify_chunk_meshes);
     }
 }

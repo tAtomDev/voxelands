@@ -3,14 +3,14 @@ use bevy::prelude::IVec3;
 use crate::data::{constants::*, VoxelType};
 
 #[inline]
-const fn flatten(position: IVec3) -> usize {
+pub const fn flatten(position: IVec3) -> usize {
     (position.x as usize) << X_SHIFT
         | (position.y as usize) << Y_SHIFT
         | (position.z as usize) << Z_SHIFT
 }
 
 #[inline]
-const fn unflatten(index: usize) -> IVec3 {
+pub const fn unflatten(index: usize) -> IVec3 {
     IVec3::new(
         ((index & X_MASK) >> X_SHIFT) as i32,
         ((index & Y_MASK) >> Y_SHIFT) as i32,

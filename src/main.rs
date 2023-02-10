@@ -1,10 +1,13 @@
 mod data;
-mod plugin;
+mod debug;
+mod game;
 mod rendering;
 mod world;
 
 use bevy::{asset::LoadState, prelude::*, window::PresentMode};
-use plugin::*;
+use debug::*;
+use game::*;
+//use plugin::*;
 use rendering::{ChunkMaterial, ChunkTextureAtlas};
 
 fn main() {

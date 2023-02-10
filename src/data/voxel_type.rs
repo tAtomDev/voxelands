@@ -5,12 +5,13 @@ pub enum VoxelType {
     Air,
     Grass,
     Dirt,
-    //    Stone,
+    Stone,
 }
 
 impl VoxelType {
-    pub fn is_transparent(&self) -> bool {
-        *self == VoxelType::Air
+    #[inline(always)]
+    pub fn is_transparent(self) -> bool {
+        self == VoxelType::Air
     }
 
     pub const fn get_face_index(&self, face: VoxelFace) -> u32 {
@@ -21,7 +22,7 @@ impl VoxelType {
                 _ => 2,
             },
             VoxelType::Dirt => 2,
-            //            VoxelType::Stone => 3,
+            VoxelType::Stone => 3,
             _ => 0,
         }
     }

@@ -1,4 +1,5 @@
 #![allow(unused)]
+const EPSILON: f32 = -1e-6f32;
 use std::{
     collections::HashMap,
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
@@ -7,9 +8,13 @@ use std::{
 use bevy::math::*;
 use itertools::iproduct;
 
-use crate::data::constants::*;
+use crate::data::{
+    constants::*,
+    voxel_face::{VoxelFace, FACES},
+    VoxelType,
+};
 
-use super::{Chunk, ChunkNeighbors, Direction};
+use super::Chunk;
 
 type ArcRwChunk = Arc<RwLock<Chunk>>;
 
@@ -50,11 +55,11 @@ impl World {
     }
 
     #[inline(always)]
-    pub const fn world_to_chunk_voxel_position(position: IVec3) -> UVec3 {
-        UVec3::new(
-            position.x.rem_euclid(CHUNK_SIZE_I32) as u32,
-            position.y.rem_euclid(CHUNK_SIZE_I32) as u32,
-            position.z.rem_euclid(CHUNK_SIZE_I32) as u32,
+    pub const fn world_to_chunk_voxel_position(position: IVec3) -> IVec3 {
+        IVec3::new(
+            position.x.rem_euclid(CHUNK_SIZE_I32),
+            position.y.rem_euclid(CHUNK_SIZE_I32),
+            position.z.rem_euclid(CHUNK_SIZE_I32),
         )
     }
 
@@ -70,8 +75,8 @@ impl World {
         self.chunks.contains_key(&position)
     }
 
-    pub fn set_chunk(&mut self, position: IVec3, chunk: Arc<RwLock<Chunk>>) {
-        self.chunks.insert(position, chunk);
+    pub fn set_chunk(&mut self, position: IVec3, chunk: Chunk) {
+        self.chunks.insert(position, Arc::new(RwLock::new(chunk)));
     }
 
     pub fn remove_chunk(&mut self, position: IVec3) {
@@ -103,21 +108,92 @@ impl World {
         )
     }
 
-    pub fn get_chunk_neighbors(&self, position: IVec3) -> ChunkNeighbors {
-        let mut neighbors = ChunkNeighbors::default();
-        for direction in Direction::LIST.iter() {
-            let position = direction.direction() + position;
-            if let Some(chunk) = self.chunks.get(&position) {
-                let weak_pointer = Arc::downgrade(chunk);
-                neighbors.neighbors.push(weak_pointer);
+    pub fn get_voxel(&self, position: IVec3) -> VoxelType {
+        let chunk_position = World::world_to_chunk_position(position);
+        let Some(chunk) = self.get_chunk(chunk_position) else {
+            return VoxelType::Air;
+        };
+
+        let voxel_position = World::world_to_chunk_voxel_position(position);
+        chunk.get_voxel(voxel_position)
+    }
+
+    pub fn set_voxel(&self, voxel_type: VoxelType, position: IVec3) {
+        let chunk_position = World::world_to_chunk_position(position);
+        let Some(mut chunk) = self.get_chunk_mut(chunk_position) else {
+            return;
+        };
+
+        let voxel_position = World::world_to_chunk_voxel_position(position);
+        chunk.set_voxel(voxel_type, voxel_position);
+    }
+
+    pub fn raytrace(&self, position: Vec3, direction: Vec3, range: f32) -> Option<RaytraceResult> {
+        let direction = direction.normalize_or_zero();
+        let start = position - direction * 0.5;
+        let end = position + direction * (range + 0.5);
+
+        let min = IVec3::min(start.as_ivec3(), end.as_ivec3()) - 1;
+        let max = IVec3::max(start.as_ivec3(), end.as_ivec3()) + 1;
+
+        let mut result: Option<RaytraceResult> = None;
+
+        for (x, y, z) in iproduct!(min.x..=max.x, min.y..=max.y, min.z..=max.z) {
+            let voxel_position = IVec3::new(x, y, z);
+            let voxel_type = self.get_voxel(voxel_position);
+            if voxel_type == VoxelType::Air {
+                continue;
+            }
+
+            for face in FACES {
+                let normal = face.normal().as_vec3();
+                let divisor = Vec3::dot(normal, direction);
+
+                // Ignore back faces
+                if divisor >= EPSILON {
+                    continue;
+                }
+
+                let plane_normal = normal * normal;
+                let voxel_size = Vec3::splat(0.5);
+                let d = -(Vec3::dot(voxel_position.as_vec3(), plane_normal)
+                    + Vec3::dot(voxel_size, normal));
+                let numerator = Vec3::dot(plane_normal, position) + d;
+
+                let distance = f32::abs(-numerator / divisor);
+                let point = position + distance * direction;
+
+                if (point.x < (x as f32) - voxel_size.x + EPSILON
+                    || point.x > (x as f32) + voxel_size.x - EPSILON
+                    || point.y < (y as f32) - voxel_size.y + EPSILON
+                    || point.y > (y as f32) + voxel_size.y - EPSILON
+                    || point.z < (z as f32) - voxel_size.z + EPSILON
+                    || point.z > (z as f32) + voxel_size.z - EPSILON)
+                {
+                    continue;
+                }
+
+                if distance <= range && (result.is_none() || result.unwrap().distance > distance) {
+                    result = Some(RaytraceResult {
+                        distance,
+                        face,
+                        point,
+                        voxel_type,
+                        voxel_position,
+                    });
+                }
             }
         }
 
-        neighbors
+        result
     }
+}
 
-    pub fn update_chunk_neighbors(&mut self, position: IVec3) {
-        let mut chunk = self.get_chunk_mut(position).expect("failed to get chunk");
-        chunk.neighbors = self.get_chunk_neighbors(position);
-    }
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct RaytraceResult {
+    pub face: VoxelFace,
+    pub voxel_type: VoxelType,
+    pub voxel_position: IVec3,
+    pub distance: f32,
+    pub point: Vec3,
 }
