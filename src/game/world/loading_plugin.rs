@@ -12,7 +12,7 @@ pub fn destroy_chunks(
 ) {
     for position in chunk_command_queue.destroy.drain(..) {
         let entity = chunk_entities.detach_entity(&position).unwrap();
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
 
         world.remove_chunk(position);
     }
@@ -30,7 +30,7 @@ pub fn create_chunks(
 }
 
 const VIEW_DISTANCE: i32 = 8;
-const HALF_VIEW_DISTANCE: i32 = VIEW_DISTANCE / 2;
+const HALF_VIEW_DISTANCE: i32 = 4;
 
 pub fn update_chunks_within_view_distance(
     mut camera: Query<(&Transform, &mut CameraState)>,

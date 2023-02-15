@@ -7,7 +7,6 @@ mod world;
 use bevy::{asset::LoadState, prelude::*, window::PresentMode};
 use debug::*;
 use game::*;
-//use plugin::*;
 use rendering::{ChunkMaterial, ChunkTextureAtlas};
 
 fn main() {

@@ -30,9 +30,10 @@ fn process_chunk_terrain_generation(
 ) {
     for (entity, chunk_component, mut task) in &mut generating_chunks {
         if let Some(chunk) = block_on(poll_once(&mut task.0)) {
+            commands.entity(entity).remove::<TerrainGenerationTask>();
+
             let chunk_position = chunk_component.0;
             world.set_chunk(chunk_position, chunk);
-            commands.entity(entity).remove::<TerrainGenerationTask>();
             dirty_chunks.mark_dirty(chunk_position);
         }
     }

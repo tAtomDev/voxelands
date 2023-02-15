@@ -1,9 +1,11 @@
 use bevy::{
-    diagnostic::{Diagnostic, DiagnosticId, Diagnostics},
+    diagnostic::{Diagnostic, DiagnosticId, Diagnostics, EntityCountDiagnosticsPlugin},
     pbr::wireframe::{WireframeConfig, WireframePlugin},
     prelude::*,
 };
 use bevy_inspector_egui::{bevy_egui::EguiContext, quick::WorldInspectorPlugin};
+
+use crate::world::World;
 
 use super::CameraState;
 
@@ -17,6 +19,7 @@ impl Plugin for DebugPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(WireframePlugin)
             .add_plugin(WorldInspectorPlugin)
+            .add_plugin(EntityCountDiagnosticsPlugin)
             .init_resource::<DebugSettings>()
             .insert_resource(Diagnostics::default())
             .add_startup_system(setup)
@@ -57,11 +60,21 @@ fn diagnostic_system(mut diagnostics: ResMut<Diagnostics>, time: Res<Time>) {
     diagnostics.add_measurement(DIAGNOSTIC_FPS, || 1.0 / delta_seconds);
 }
 
-fn update_ui(mut ctx: ResMut<EguiContext>, diagnostics: Res<Diagnostics>) {
+fn update_ui(mut ctx: ResMut<EguiContext>, diagnostics: Res<Diagnostics>, world: Res<World>) {
     let egui_context = ctx.ctx_mut().clone();
 
     egui::Window::new("UI").show(&egui_context, |ui| {
-        ui.heading("Performance");
+        ui.heading("Debug");
+
+        ui.label(format!(
+            "Entity count: {}",
+            diagnostics
+                .get_measurement(EntityCountDiagnosticsPlugin::ENTITY_COUNT)
+                .map(|d| d.value)
+                .unwrap_or_default()
+        ));
+
+        ui.label(format!("Chunk count: {}", world.chunks().len()));
 
         ui.label(format!(
             "Frame Time: {}ms",

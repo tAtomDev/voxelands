@@ -16,11 +16,9 @@ use crate::data::{
 
 use super::Chunk;
 
-type ArcRwChunk = Arc<RwLock<Chunk>>;
-
 #[derive(Debug, bevy::prelude::Resource)]
 pub struct World {
-    chunks: HashMap<IVec3, ArcRwChunk>,
+    chunks: HashMap<IVec3, Chunk>,
 }
 
 impl Default for World {
@@ -63,11 +61,11 @@ impl World {
         )
     }
 
-    pub const fn chunks(&self) -> &HashMap<IVec3, ArcRwChunk> {
+    pub const fn chunks(&self) -> &HashMap<IVec3, Chunk> {
         &self.chunks
     }
 
-    pub fn chunks_mut(&mut self) -> &mut HashMap<IVec3, ArcRwChunk> {
+    pub fn chunks_mut(&mut self) -> &mut HashMap<IVec3, Chunk> {
         &mut self.chunks
     }
 
@@ -76,36 +74,19 @@ impl World {
     }
 
     pub fn set_chunk(&mut self, position: IVec3, chunk: Chunk) {
-        self.chunks.insert(position, Arc::new(RwLock::new(chunk)));
+        self.chunks.insert(position, chunk);
     }
 
     pub fn remove_chunk(&mut self, position: IVec3) {
         self.chunks.remove(&position);
     }
 
-    pub fn get_chunk_arc(&self, position: IVec3) -> Arc<RwLock<Chunk>> {
-        self.chunks
-            .get(&position)
-            .expect("failed to read chunk arc")
-            .clone()
+    pub fn get_chunk(&self, position: IVec3) -> Option<&Chunk> {
+        self.chunks.get(&position)
     }
 
-    pub fn get_chunk(&self, position: IVec3) -> Option<RwLockReadGuard<Chunk>> {
-        Some(
-            self.chunks
-                .get(&position)?
-                .read()
-                .expect("failed to read chunk"),
-        )
-    }
-
-    pub fn get_chunk_mut(&self, position: IVec3) -> Option<RwLockWriteGuard<Chunk>> {
-        Some(
-            self.chunks
-                .get(&position)?
-                .write()
-                .expect("failed to write chunk"),
-        )
+    pub fn get_chunk_mut(&mut self, position: IVec3) -> Option<&mut Chunk> {
+        self.chunks.get_mut(&position)
     }
 
     pub fn get_voxel(&self, position: IVec3) -> VoxelType {
@@ -118,7 +99,7 @@ impl World {
         chunk.get_voxel(voxel_position)
     }
 
-    pub fn set_voxel(&self, voxel_type: VoxelType, position: IVec3) {
+    pub fn set_voxel(&mut self, voxel_type: VoxelType, position: IVec3) {
         let chunk_position = World::world_to_chunk_position(position);
         let Some(mut chunk) = self.get_chunk_mut(chunk_position) else {
             return;

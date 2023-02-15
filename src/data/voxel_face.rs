@@ -77,7 +77,7 @@ pub const FACE_NORMALS: [IVec3; 6] = [
     IVec3::new(0, 0, 1),
 ];
 
-pub const FACE_COLOR_INTENSITIES: [f32; 6] = [0.6, 0.6, 0.3, 1.0, 0.7, 0.7];
+pub const FACE_COLOR_INTENSITIES: [u32; 6] = [3, 3, 2, 5, 4, 4];
 
 #[rustfmt::skip]
 impl VoxelFace {
@@ -85,7 +85,7 @@ impl VoxelFace {
         FACE_NORMALS[*self as usize]
     }
 
-    pub const fn color_intensity(&self) -> f32 {
+    pub const fn color_intensity(&self) -> u32 {
         FACE_COLOR_INTENSITIES[*self as usize]
     }
 

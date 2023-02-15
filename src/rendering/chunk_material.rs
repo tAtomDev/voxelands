@@ -19,11 +19,8 @@ pub struct ChunkMaterial {
 }
 
 impl ChunkMaterial {
-    pub const ATTRIBUTE_COLOR_INTENSITY: MeshVertexAttribute =
-        MeshVertexAttribute::new("Color_Intensity", 2 << 12, VertexFormat::Float32);
-
-    pub const ATTRIBUTE_TEXTURE_INDEX: MeshVertexAttribute =
-        MeshVertexAttribute::new("Texture_Index", 2 << 13, VertexFormat::Uint32);
+    pub const ATTRIBUTE_DATA: MeshVertexAttribute =
+        MeshVertexAttribute::new("Data", 2 << 12, VertexFormat::Uint32);
 }
 
 impl Material for ChunkMaterial {
@@ -43,9 +40,7 @@ impl Material for ChunkMaterial {
     ) -> Result<(), bevy::render::render_resource::SpecializedMeshPipelineError> {
         let vertex_layout = layout.get_layout(&[
             Mesh::ATTRIBUTE_POSITION.at_shader_location(0),
-            Mesh::ATTRIBUTE_UV_0.at_shader_location(1),
-            ChunkMaterial::ATTRIBUTE_COLOR_INTENSITY.at_shader_location(2),
-            ChunkMaterial::ATTRIBUTE_TEXTURE_INDEX.at_shader_location(3),
+            ChunkMaterial::ATTRIBUTE_DATA.at_shader_location(1),
         ])?;
 
         descriptor.vertex.buffers = vec![vertex_layout];

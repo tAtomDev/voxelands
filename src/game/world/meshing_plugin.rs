@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bevy::{prelude::*, render::primitives::Aabb, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 
@@ -25,7 +27,7 @@ fn prepare_new_chunks(
             .insert(MaterialMeshBundle {
                 transform: Transform::from_translation(chunk_world_position),
                 material: materials.add(ChunkMaterial {
-                    texture_atlas: texture_atlas.0.clone(),
+                    texture_atlas: texture_atlas.0.clone_weak(),
                 }),
                 mesh: meshes.add(meshing::generate_empty_chunk_mesh()),
                 visibility: Visibility::INVISIBLE,
@@ -48,12 +50,9 @@ fn queue_chunk_meshing(
 
     for chunk_position in dirty_chunks.iter_dirty() {
         let entity = chunk_entities.entity(chunk_position).unwrap();
-        let chunk = world.get_chunk_arc(*chunk_position);
+        let chunk = world.get_chunk(*chunk_position).unwrap().clone();
 
-        let task = task_pool.spawn(async move {
-            let chunk = chunk.read().unwrap();
-            meshing::generate_chunk_mesh(&chunk)
-        });
+        let task = task_pool.spawn(async move { meshing::generate_chunk_mesh(&chunk) });
 
         commands.entity(entity).insert(ChunkMeshingTask(task));
     }
@@ -74,9 +73,9 @@ fn process_mesh_tasks(
 ) {
     for (entity, handle, mut task, mut visibility) in &mut query {
         if let Some(mesh) = future::block_on(future::poll_once(&mut task.0)) {
+            commands.entity(entity).remove::<ChunkMeshingTask>();
             *meshes.get_mut(handle).unwrap() = mesh;
             visibility.is_visible = true;
-            commands.entity(entity).remove::<ChunkMeshingTask>();
         }
     }
 }

@@ -37,16 +37,17 @@ impl Chunk {
         let mut rng = rand::thread_rng();
 
         let chunk_world_position = chunk.world_position().as_ivec3();
+        if chunk_world_position.y > 288 {
+            return Some(chunk);
+        }
 
         for voxel_position in chunk.iter_voxels() {
             let position = chunk_world_position + voxel_position;
             let h = 16 + rng.gen_range(-4..=4);
-            if position.y > h {
-                chunk.set_voxel(VoxelType::Air, voxel_position);
-            } else if position.y == h {
+            if position.y == h {
                 chunk.set_voxel(VoxelType::Grass, voxel_position);
                 empty_chunk = false;
-            } else {
+            } else if position.y < h {
                 chunk.set_voxel(VoxelType::Dirt, voxel_position);
                 empty_chunk = false;
             }

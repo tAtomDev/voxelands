@@ -3,9 +3,7 @@
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
-    @location(1) uvs: vec2<f32>,
-    @location(2) color_intensity: f32,
-    @location(3) texture_index: u32,
+    @location(1) data: u32,
 }
 
 struct VertexOutput {
@@ -22,9 +20,21 @@ var<uniform> mesh: Mesh;
 fn vertex(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = view.view_proj * mesh.model * vec4<f32>(in.position, 1.0);
-    out.color_intensity = in.color_intensity;
-    out.uvs = in.uvs;
-    out.texture_index = in.texture_index;
+
+    var color_intensity: f32 = f32((in.data >> 2u) & 5u) / 5.0;
+    if color_intensity < 0.4 {
+        color_intensity = 0.4;
+    }
+
+    out.color_intensity = color_intensity;
+
+    var uvs: vec2<f32> = vec2<f32>(
+        f32((in.data >> 1u) & 1u),
+        f32(in.data & 1u),
+    );
+
+    out.uvs = uvs;
+    out.texture_index = (in.data >> 6u) & 255u;
 
     return out;
 }
