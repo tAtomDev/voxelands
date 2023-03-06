@@ -58,18 +58,18 @@ pub fn generate_chunk_mesh(chunk: &Chunk) -> Mesh {
 
     let mut mesh_data: MeshData = MeshData::new();
 
-    //for position in chunk.iter_voxels() {
-    //    let voxel_type = chunk.get_voxel(position);
-    //    if voxel_type.is_transparent() {
-    //        continue;
-    //    }
-    //
-    //    for face in FACES {
-    //        if chunk.is_transparent_at(position + face.normal()) {
-    //            add_face(&mut mesh_data, voxel_type, position, face);
-    //        }
-    //    }
-    //}
+    for position in chunk.iter_voxels() {
+        let voxel_type = chunk.get_voxel(position);
+        if voxel_type.is_transparent() {
+            continue;
+        }
+    
+        for face in FACES {
+            if chunk.is_transparent_at(position + face.normal()) {
+                add_face(&mut mesh_data, voxel_type, position, face);
+            }
+        }
+    }
 
     mesh.set_indices(Some(Indices::U32(mesh_data.indices)));
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.positions);

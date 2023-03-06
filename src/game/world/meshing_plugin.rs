@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bevy::{prelude::*, render::primitives::Aabb, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 
